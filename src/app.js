@@ -95,7 +95,17 @@ app.post('/balances/deposit/:userId',getProfile ,async (req, res) => {
 app.get('/admin/bestprofession/:start/:end',getProfile ,async (req, res) => {
   const {Profile, Contract, Job} = req.app.get('models')
   const { start, end } = req.params
-  const profileJobsWithoutPay = await Profile.findAll({where: {id: req.get('profile_id')}, include: {model: Contract, as: 'Client', include: {model: Job, where: {paid: true}}} })
-  res.json({success: false, message: { start, end } })
+  const profileJobsWithoutPay = await Profile.findAll({where: {type: 'contractor'}, include: {model: Contract, as: 'Contractor', include: {model: Job, where: {paid: true, paymentDate: {[Op.between]: [start, end]} }}} })
+  const newProfileJobsMuted = profileJobsWithoutPay.map(profiles => {
+    const total = profiles.Contractor.reduce((acc, cur) => acc + cur.Jobs.reduce((acc2, cur2) => acc2 + cur2.price, 0) , 0)
+    return {
+      profession: profiles.profession,
+      total
+    }
+  }).reduce((acc, cur) => {
+    return acc.total > cur.total ? acc : cur;
+  }, [])
+
+  res.json(newProfileJobsMuted)
 })
 module.exports = app;
